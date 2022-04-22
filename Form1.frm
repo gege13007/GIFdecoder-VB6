@@ -40,7 +40,7 @@ Begin VB.Form Form1
          Italic          =   0   'False
          Strikethrough   =   0   'False
       EndProperty
-      Height          =   330
+      Height          =   480
       Left            =   7800
       TabIndex        =   1
       Top             =   4440
@@ -70,13 +70,21 @@ Begin VB.Form Form1
       Width           =   3000
    End
    Begin VB.Label gifptrlbl 
-      Alignment       =   2  'Center
       BackStyle       =   0  'Transparent
+      BeginProperty Font 
+         Name            =   "Noto Mono"
+         Size            =   8.25
+         Charset         =   0
+         Weight          =   400
+         Underline       =   0   'False
+         Italic          =   -1  'True
+         Strikethrough   =   0   'False
+      EndProperty
       Height          =   240
-      Left            =   1800
+      Left            =   60
       TabIndex        =   3
       Top             =   30
-      Width           =   855
+      Width           =   2055
    End
 End
 Attribute VB_Name = "Form1"
@@ -161,10 +169,10 @@ log ("> " + f2$ + "  " + CStr(pixwidth) + "x" + CStr(pixheight) + " pixels")
 frame_num = 0
 
 'Ouvre le fichier .h en écriture
-Set logfilobj = CreateObject("Scripting.FileSystemObject")
-Set logfile = logfilobj.CreateTextFile(App.Path + "\log_b9.txt", True)
-logfile.WriteLine (f2$)
-logfile.WriteLine ("")
+'Set logfilobj = CreateObject("Scripting.FileSystemObject")
+'Set logfile = logfilobj.CreateTextFile(App.Path + "\log_b9.txt", True)
+'logfile.WriteLine (f2$)
+'logfile.WriteLine ("")
 
 '--------------------------------------------
 '         Global Color Table (si oui)
@@ -305,11 +313,11 @@ mask = initablesize
 Raz_dico
 
  'Si disposal=2 met bgcolor partout ?
- 'If display_disposal > 1 Then
- '  For nxx = 0 To UBound(pix) - 1
- '    pix(nxx) = bgcolindex
- '  Next nxx
- 'End If
+ If display_disposal = 2 Then
+   For nxx = 0 To UBound(pix) - 1
+     pix(nxx) = bgcolindex
+   Next nxx
+ End If
  
 Do
   newb9 = getCode()
@@ -402,11 +410,12 @@ log ("> " + CStr(frame_num) + ". disposal=" + CStr(display_disposal) + ", transp
   
 Me.MousePointer = vbDefault
 Call drawpix
+Sleep (6 * display_ms)   ' 10 x PLUS LENT !!!
 
 Loop
 
 finprog:
-logfile.Close
+'logfile.Close
 Me.MousePointer = vbDefault
 
  If loopchk.Value = Checked Then GoTo RESTARTIMAGE
@@ -414,8 +423,10 @@ Me.MousePointer = vbDefault
 End Sub
 
 '---------------------------------------------------
-'   PASSE DE 8 en 9 bits (ou plus...) (ou moins...)
-'----------------------------------------------------
+' Lit les octets du .gif et passe en code (newb9) de
+' longueur variable ...de 8 à 9 bits (ou plus...)
+' Gère les paquets d'octets (packleft)
+'---------------------------------------------------
 'Sort si packleft=0 : plus de paquets à lire (getCode = endcode)
 'Sort si fin du fichier dépassée (getCode = endcode)
 Function getCode()
@@ -439,7 +450,7 @@ Dim nn%
        packleft = getgif()
        
        'POUR TEST
-       gifptrlbl.Caption = CStr(gifptr)
+       gifptrlbl.Caption = CStr(gifptr) + " bytes"
        'POUR SECURITE
        If gifptr > UBound(gif) Then
          getCode = endcode
@@ -466,8 +477,7 @@ End Function
 '             Dessine de l'Image en Clair
 '--------------------------------------------------------
 Sub drawpix()
-Dim pt!, a%, b%, col As Byte
-Dim x2!, y2!
+Dim pt!, a!, b!, col As Byte
 
 pt = 0
  
@@ -477,9 +487,7 @@ If interlace <> 0 Then
     For a = 0 To pixwidth - 1
       col = pix(pt)
       pt = pt + 1
-      x2 = (20 + (a)):
-      y2 = (20 + (b))
-      Call pset2(x2, y2, col)
+      Call pset2(a, b, col)
     Next a
   Next b
   'passe 2
@@ -487,9 +495,7 @@ If interlace <> 0 Then
     For a = 0 To pixwidth - 1
       col = pix(pt)
       pt = pt + 1
-      x2 = (20 + (a))
-      y2 = (20 + (b))
-      Call pset2(x2, y2, col)
+      Call pset2(a, b, col)
     Next a
   Next b
   'passe 3
@@ -497,9 +503,7 @@ If interlace <> 0 Then
     For a = 0 To pixwidth - 1
       col = pix(pt)
       pt = pt + 1
-      x2 = (20 + (a))
-      y2 = (20 + (b))
-      Call pset2(x2, y2, col)
+      Call pset2(a, b, col)
     Next a
   Next b
   'passe 4
@@ -507,9 +511,7 @@ If interlace <> 0 Then
     For a = 0 To pixwidth - 1
       col = pix(pt)
       pt = pt + 1
-      x2 = (20 + (a))
-      y2 = (20 + (b))
-      Call pset2(x2, y2, col)
+      Call pset2(a, b, col)
     Next a
   Next b
   
@@ -519,11 +521,7 @@ Else
     For a = 0 To pixwidth - 1
       col = pix(pt)
       pt = pt + 1
-      x2 = 20 + a
-      y2 = 20 + b
-      If b >= cliptop Then    ' !!!!!!!!!
-        Call pset2(x2, y2, col)
-      End If
+      Call pset2(a, b, col)
     Next a
   Next b
  End If
@@ -532,26 +530,41 @@ Else
  Me.Refresh
 End Sub
 
+
 Sub pset2(x!, y!, coul As Byte)
-  If ((coul <> display_trans_col) Or (display_disposal < 1)) Then
-'     And ((col <> bgcolindex) Or (display_transpa = 0)) Then
-    Me.PSet (x, y), (RGB(color(coul, 0), color(coul, 1), color(coul, 2)))
+ 'test si dans le clip !
+ If y < cliptop Then Exit Sub
+ If y > cliptop + clipheight Then Exit Sub
+
+ Select Case display_disposal
+ 
+' Case 0
+' Me.PSet (x + 20, y + 20), (RGB(color(coul, 0), color(coul, 1), color(coul, 2)))
+ 
+ 'test si transparence
+ Case 0, 1
+  If ((coul <> display_trans_col) Or (display_transpa = 0)) Then
+    Me.PSet (x + 20, y + 20), (RGB(color(coul, 0), color(coul, 1), color(coul, 2)))
   End If
+ 
+ Case 2 To 7
+ 'si disposal to bground / met fond gris forcé sur transparence
+ 'englobe aussi le disposal mode 3 (?)
+  If ((coul = display_trans_col) And (display_transpa > 0)) Then
+    Me.PSet (x + 20, y + 20), (RGB(239, 239, 239))
+  Else
+    Me.PSet (x + 20, y + 20), (RGB(color(coul, 0), color(coul, 1), color(coul, 2)))
+  End If
+ 
+ End Select
 End Sub
+
+
 Sub Setpix(z As Byte)
  'Store un Pixel / sauf si pixel en transparence
  If outptr > maxpixels Then Exit Sub
   
- If (display_trans_col <> z) Or (display_disposal = 0) Then
-   If (z <> bgcolindex) Then
-     pix(outptr) = z
-   End If
- Else
-   'couleur z = bg transparent
-   If (display_transpa = 0) Or (display_disposal > 0) Then
-     pix(outptr) = z
-   End If
- End If
+ pix(outptr) = z
  
  'Si le Clip + petit quePix -> test si retour ligne ?
  clipx = clipx + 1
@@ -600,7 +613,7 @@ tablesize = initablesize
  
  newb9 = getCode()
  
- logfile.WriteLine ("> RAZ DICO ")
+' logfile.WriteLine ("> RAZ DICO ")
 End Sub
 
 'Renvoie la couleur index en RVB hexa
