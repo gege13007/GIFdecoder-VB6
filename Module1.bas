@@ -3,6 +3,7 @@ Attribute VB_Name = "Module1"
 'https://commandlinefanatic.com/cgi-bin/showarticle.cgi?article=art011
 'https://stackoverflow.com/questions/67912876/what-exactly-to-do-at-max-code-table-size-followed-by-clear-code-read-in-a-gif-l
 'https://www.eecis.udel.edu/~amer/CISC651/lzw.and.gif.explained.html
+Public Declare Sub Sleep Lib "kernel32" (ByVal dwMilliseconds As Long)
 
 Type Entry
   long As Long
