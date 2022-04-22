@@ -40,6 +40,7 @@ Global color(256, 2) As Byte
 Global bgcolindex As Byte
 Global field As Byte, pixratio As Byte, interlace As Byte
 Global glob_col_tab As Byte
+Global glob_coltab_size!, loc_coltab_size!
 
 'pour transform en 9 bits
 Global newb9 As Long
@@ -47,7 +48,7 @@ Global packleft!
 Global newx As Byte
 Global mask As Byte
 Global loopbits As Byte
-Global col_tab_size!, MSBbit!
+Global MSBbit!
 Global tablesize!, initablesize!
 
 Global clearcode!, endcode!, oldcode!

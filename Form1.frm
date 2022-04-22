@@ -6,12 +6,20 @@ Begin VB.Form Form1
    ClientHeight    =   7515
    ClientLeft      =   120
    ClientTop       =   465
-   ClientWidth     =   8565
+   ClientWidth     =   9930
    LinkTopic       =   "Form1"
    ScaleHeight     =   501
    ScaleMode       =   3  'Pixel
-   ScaleWidth      =   571
+   ScaleWidth      =   662
    StartUpPosition =   3  'Windows Default
+   Begin VB.CheckBox loopchk 
+      Caption         =   "loop"
+      Height          =   330
+      Left            =   7920
+      TabIndex        =   4
+      Top             =   5040
+      Width           =   1095
+   End
    Begin VB.TextBox logtxt 
       Height          =   2895
       Left            =   120
@@ -19,7 +27,7 @@ Begin VB.Form Form1
       ScrollBars      =   2  'Vertical
       TabIndex        =   2
       Top             =   4440
-      Width           =   7500
+      Width           =   7260
    End
    Begin VB.CommandButton Command2 
       Caption         =   "GIF parse"
@@ -32,11 +40,11 @@ Begin VB.Form Form1
          Italic          =   0   'False
          Strikethrough   =   0   'False
       EndProperty
-      Height          =   270
-      Left            =   0
+      Height          =   330
+      Left            =   7800
       TabIndex        =   1
-      Top             =   0
-      Width           =   1695
+      Top             =   4440
+      Width           =   1575
    End
    Begin MSComDlg.CommonDialog CommonDlg 
       Left            =   4080
@@ -79,7 +87,7 @@ Attribute VB_Exposed = False
 Option Explicit
  
 Private Sub Command2_Click()
-Dim X!, nn!, nxx As Long
+Dim x!, nn!, nxx As Long
 Dim maxdicoptr!
 Dim pref$, ver$, f$, t$, f2$
 Dim nbitcode As Byte
@@ -95,6 +103,12 @@ If InStr(UCase(f$), ".GIF") < 1 Then
   MsgBox "Pas de fichier GIF !"
   Unload Me
 End If
+
+pict.Picture = LoadPicture(f$)
+Me.Cls
+Me.Refresh
+
+RESTARTIMAGE:
 
 'Ouvre le fichier histo en lecture
 Open (f$) For Binary As #1
@@ -122,15 +136,17 @@ pixheight = getgif() + 256 * getgif()
 maxpixels = pixwidth * pixheight
 ReDim pix(maxpixels) As Byte
 
-Form1.Width = (2 * pixwidth + 300) * Screen.TwipsPerPixelX
+Form1.Width = (2 * pixwidth + 440) * Screen.TwipsPerPixelX
 pict.Left = (150 + pixwidth)
 Form1.Height = (pixheight + 300) * Screen.TwipsPerPixelY
 logtxt.Top = pixheight + 50
+Command2.Top = logtxt.Top
+loopchk.Top = logtxt.Top + 40
 logtxt.Text = ""
 
 field = getgif()
-'tester si bit 7 = 1 ?
-col_tab_size = 2 ^ ((field And 7) + 1)
+'Test Global color table ?
+glob_coltab_size = 2 ^ ((field And 7) + 1)
 glob_col_tab = (field And 128)
 bgcolindex = getgif()
 pixratio = getgif()
@@ -142,9 +158,6 @@ f2$ = Mid$(f2$, 1 + InStr(f2$, "\"))
 Me.Caption = f2$
 log ("> " + f2$ + "  " + CStr(pixwidth) + "x" + CStr(pixheight) + " pixels")
 
-pict.Picture = LoadPicture(f$)
-Me.Cls
-Me.Refresh
 frame_num = 0
 
 'Ouvre le fichier .h en écriture
@@ -157,7 +170,7 @@ logfile.WriteLine ("")
 '         Global Color Table (si oui)
 '--------------------------------------------
 If glob_col_tab > 0 Then
-  For nxx = 0 To col_tab_size - 1
+  For nxx = 0 To glob_coltab_size - 1
     color(nxx, 0) = getgif()
     color(nxx, 1) = getgif()
     color(nxx, 2) = getgif()
@@ -172,27 +185,27 @@ Do
 
 'passe eventuelles extensions
 Do
- X = getgif()
- While X = 0: X = getgif(): Wend
+ x = getgif()
+ While x = 0: x = getgif(): Wend
  'securité fin fichier ?
- If X = &H3B Then Exit Do
+ If x = &H3B Then Exit Do
  
  'Test si Extension ?
- If X <> &H21 Then Exit Do
+ If x <> &H21 Then Exit Do
    'Type extension ?
    ext = getgif()
-   
-   'Type extension (FF) Animation !
    Select Case ext
    Case &HFF
-     'Longueur extension
+   '----------------------------------------------
+   '            Application Extension
+   '----------------------------------------------
      b = getgif()
      'capte les 3 premiers chars pour test
      'soit 'NETSCAPE' (gifanim) soit 'XMP' (???)
      c1 = getgif()
      c2 = getgif()
      c3 = getgif()
-     For a = 1 To b - 3: X = getgif(): Next a
+     For a = 1 To b - 3: x = getgif(): Next a
      
      'Si NETSCAPE (gifanim)
      If c1 = Asc("N") And c2 = Asc("E") And c3 = Asc("T") Then
@@ -200,12 +213,15 @@ Do
        b = getgif()  ' must be = 1
        display_times = 256 * getgif()           ' \
        display_times = display_times + getgif() ' / n fois loops (0 = infini)
+       If display_times = 0 Then loopchk.Value = Checked
      Else
      'Si XMP vide ???
-      While X <> 0: X = getgif(): Wend
+      While x <> 0: x = getgif(): Wend
      End If
      
-   'Graphics Control extension (F9) Animation & Transparency
+   '----------------------------------------------
+   ' Graphics Control extension (Anim & Transpar)
+   '----------------------------------------------
    Case &HF9
      'len of data sub-block
      a = getgif()       ' must be = 4 (byte size)
@@ -220,40 +236,44 @@ Do
      display_trans_col = getgif()           ' Transpar Color Index
      
    Case Else
-     'Autre 'Comment' Extension
+   '--------------------------------------------
+   '            'Comment' Extension
+   '--------------------------------------------
      b = getgif()
      t$ = ""
      For a = 1 To b
-       X = getgif(): If X > 31 Then t$ = t$ + Chr$(X)
+       x = getgif(): If x > 31 Then t$ = t$ + Chr$(x)
      Next a
      log ">Comment: " + t$
    End Select
    
    'doit être = 0 !
-   X = getgif()
+   x = getgif()
 'sort de la série 'Extensions'
 Loop
 
 'securité fin fichier TRAILER ?
- If X = &H3B Then Exit Do
+ If x = &H3B Then Exit Do
  
 '--------------------------------------------
 '              Image  Descriptor
 '--------------------------------------------
-If X <> &H2C Then MsgBox "Problème 2C"
+If x <> &H2C Then MsgBox "Problème 2C"
 
 clipleft = getgif() + 256 * getgif()   ' clip left pos
 cliptop = getgif() + 256 * getgif()    ' clip top pos
 clipwidth = getgif() + 256 * getgif()
 clipheight = getgif() + 256 * getgif()
 field = getgif()
+'Lobal color table ?
+loc_coltab_size = 2 ^ ((field And 7) + 1)
 interlace = field And 64
 
 '--------------------------------------------
 '            Local Color Table ?
 '--------------------------------------------
 If glob_col_tab = 0 Then
-  For nxx = 0 To col_tab_size - 1
+  For nxx = 0 To loc_coltab_size - 1
     color(nxx, 0) = getgif()
     color(nxx, 1) = getgif()
     color(nxx, 2) = getgif()
@@ -388,6 +408,9 @@ Loop
 finprog:
 logfile.Close
 Me.MousePointer = vbDefault
+
+ If loopchk.Value = Checked Then GoTo RESTARTIMAGE
+
 End Sub
 
 '---------------------------------------------------
@@ -438,6 +461,7 @@ Dim nn%
  
  getCode = newb9
 End Function
+
 '--------------------------------------------------------
 '             Dessine de l'Image en Clair
 '--------------------------------------------------------
@@ -455,7 +479,7 @@ If interlace <> 0 Then
       pt = pt + 1
       x2 = (20 + (a)):
       y2 = (20 + (b))
-      Me.PSet (x2, y2), (RGB(color(col, 0), color(col, 1), color(col, 2))):
+      Call pset2(x2, y2, col)
     Next a
   Next b
   'passe 2
@@ -465,7 +489,7 @@ If interlace <> 0 Then
       pt = pt + 1
       x2 = (20 + (a))
       y2 = (20 + (b))
-      Me.PSet (x2, y2), (RGB(color(col, 0), color(col, 1), color(col, 2))):
+      Call pset2(x2, y2, col)
     Next a
   Next b
   'passe 3
@@ -475,7 +499,7 @@ If interlace <> 0 Then
       pt = pt + 1
       x2 = (20 + (a))
       y2 = (20 + (b))
-      Me.PSet (x2, y2), (RGB(color(col, 0), color(col, 1), color(col, 2))):
+      Call pset2(x2, y2, col)
     Next a
   Next b
   'passe 4
@@ -485,7 +509,7 @@ If interlace <> 0 Then
       pt = pt + 1
       x2 = (20 + (a))
       y2 = (20 + (b))
-      Me.PSet (x2, y2), (RGB(color(col, 0), color(col, 1), color(col, 2))):
+      Call pset2(x2, y2, col)
     Next a
   Next b
   
@@ -497,9 +521,8 @@ Else
       pt = pt + 1
       x2 = 20 + a
       y2 = 20 + b
-      If b >= cliptop Then
-        If (col <> display_trans_col) Or (display_disposal > 1) Then Me.PSet (x2, y2), (RGB(color(col, 0), color(col, 1), color(col, 2)))
-'        Me.PSet (x2, y2), (RGB(color(col, 0), color(col, 1), color(col, 2)))
+      If b >= cliptop Then    ' !!!!!!!!!
+        Call pset2(x2, y2, col)
       End If
     Next a
   Next b
@@ -509,12 +532,20 @@ Else
  Me.Refresh
 End Sub
 
+Sub pset2(x!, y!, coul As Byte)
+  If ((coul <> display_trans_col) Or (display_disposal < 1)) Then
+'     And ((col <> bgcolindex) Or (display_transpa = 0)) Then
+    Me.PSet (x, y), (RGB(color(coul, 0), color(coul, 1), color(coul, 2)))
+  End If
+End Sub
 Sub Setpix(z As Byte)
  'Store un Pixel / sauf si pixel en transparence
  If outptr > maxpixels Then Exit Sub
   
  If (display_trans_col <> z) Or (display_disposal = 0) Then
-   pix(outptr) = z
+   If (z <> bgcolindex) Then
+     pix(outptr) = z
+   End If
  Else
    'couleur z = bg transparent
    If (display_transpa = 0) Or (display_disposal > 0) Then
