@@ -122,8 +122,8 @@ RESTARTIMAGE:
 Open (f$) For Binary As #1
 ReDim gif(LOF(1))
 Get #1, , gif
+gifptr = LOF(1)
 Close #1
-
 gifptr = 0
 
 '---------------------------------------------
@@ -140,17 +140,18 @@ ver$ = Chr$(getgif()) + Chr$(getgif()) + Chr$(getgif())
 pixwidth = getgif() + 256 * getgif()
 pixheight = getgif() + 256 * getgif()
 
-'redim le canvas
-maxpixels = pixwidth * pixheight
-ReDim pix(maxpixels) As Byte
-
-Form1.Width = (2 * pixwidth + 440) * Screen.TwipsPerPixelX
-pict.Left = (150 + pixwidth)
+a = pixwidth: If a < 220 Then a = 250
+Form1.Width = (2 * a + 200) * Screen.TwipsPerPixelX
+pict.Left = (150 + a)
 Form1.Height = (pixheight + 300) * Screen.TwipsPerPixelY
 logtxt.Top = pixheight + 50
 Command2.Top = logtxt.Top
 loopchk.Top = logtxt.Top + 40
 logtxt.Text = ""
+
+'redim le canvas
+maxpixels = pixwidth * pixheight
+ReDim pix(maxpixels) As Byte
 
 field = getgif()
 'Test Global color table ?
@@ -159,7 +160,6 @@ glob_col_tab = (field And 128)
 bgcolindex = getgif()
 pixratio = getgif()
 
-'f$ = "C:\Program Files (x86)\VB98\GIFdecode\SeaShep.gif"
 f2$ = Mid$(f$, InStr(f$, "\"))
 f2$ = Mid$(f2$, 1 + InStr(f2$, "\"))
 f2$ = Mid$(f2$, 1 + InStr(f2$, "\"))
@@ -219,8 +219,8 @@ Do
      If c1 = Asc("N") And c2 = Asc("E") And c3 = Asc("T") Then
        a = getgif()  ' must be = 3
        b = getgif()  ' must be = 1
-       display_times = 256 * getgif()           ' \
-       display_times = display_times + getgif() ' / n fois loops (0 = infini)
+       display_times = getgif()                       ' \
+       display_times = display_times + 256 * getgif() ' / n fois loops (0 = infini)
        If display_times = 0 Then loopchk.Value = Checked
      Else
      'Si XMP vide ???
@@ -280,7 +280,7 @@ interlace = field And 64
 '--------------------------------------------
 '            Local Color Table ?
 '--------------------------------------------
-If glob_col_tab = 0 Then
+If loc_coltab_size > 4 Then         ' !!!!!!!!!!!! ICI !!!!!!!!!!!!
   For nxx = 0 To loc_coltab_size - 1
     color(nxx, 0) = getgif()
     color(nxx, 1) = getgif()
@@ -307,17 +307,17 @@ clipx = 0
 packleft = 0
 mask = initablesize
 
+' A VOIR ! A VOIR !!!!
+If display_disposal = 2 Then
+  For nxx = 0 To UBound(pix) - 1
+    pix(nxx) = bgcolindex
+  Next nxx
+End If
+  
 '--------------------------------------------------
 '                    DECODE  L Z W
 '--------------------------------------------------
 Raz_dico
-
- 'Si disposal=2 met bgcolor partout ?
- If display_disposal = 2 Then
-   For nxx = 0 To UBound(pix) - 1
-     pix(nxx) = bgcolindex
-   Next nxx
- End If
  
 Do
   newb9 = getCode()
@@ -330,7 +330,7 @@ Do
     oldcode = newb9
     newb9 = getCode()
     'Ajouté après ? !
-    Setpix (dico2(oldcode).code)
+    Setpix (dico(oldcode).code)
   End If
   
   ' Increase Size -> GIF89a mandates that this stops at 12 bits
@@ -345,12 +345,12 @@ Do
   If newb9 = endcode Then Exit Do
     
   'YES code is in the code table
-  If dico2(newb9).code > -1 Then
-    a = dico2(newb9).long
+  If dico(newb9).code > -1 Then
+    a = dico(newb9).long
     b = newb9
     Do
-      pushpix ((dico2(b).code))
-      b = dico2(b).prev
+      pushpix ((dico(b).code))
+      b = dico(b).prev
       If b > 0 And b < clearcode Then
         pushpix (b)
         Exit Do
@@ -363,12 +363,12 @@ Do
 
   Else
     'Not in DICO : out {code-1}+K to stream
-    a = dico2(oldcode).long
+    a = dico(oldcode).long
     b = oldcode
-    pushpix ((dico2(b).code))
+    pushpix ((dico(b).code))
     Do
-      pushpix ((dico2(b).code))
-      b = dico2(b).prev
+      pushpix ((dico(b).code))
+      b = dico(b).prev
       If b > 0 And b < clearcode Then
         pushpix (b)
         Exit Do
@@ -382,19 +382,19 @@ Do
   End If
   
   'ADD to DICO S+first symbol / {code-1}+K
-  dico2(dicoptr).prev = oldcode
-  dico2(dicoptr).long = dico2(oldcode).long + 1
+  dico(dicoptr).prev = oldcode
+  dico(dicoptr).long = dico(oldcode).long + 1
   'cherche le premier char(code) en récursif si long>1 avec .prev
   b = newb9
   If b < clearcode Then
-    dico2(dicoptr).code = dico2(b).code
+    dico(dicoptr).code = dico(b).code
   Else
   Do
-    a = dico2(b).long
+    a = dico(b).long
     If a > 1 Then
-      b = dico2(b).prev
+      b = dico(b).prev
     Else
-      dico2(dicoptr).code = dico2(b).prev
+      dico(dicoptr).code = dico(b).prev
       Exit Do
     End If
   Loop
@@ -410,7 +410,7 @@ log ("> " + CStr(frame_num) + ". disposal=" + CStr(display_disposal) + ", transp
   
 Me.MousePointer = vbDefault
 Call drawpix
-Sleep (6 * display_ms)   ' 10 x PLUS LENT !!!
+Sleep (2 * display_ms)   '  PLUS LENT !!!
 
 Loop
 
@@ -532,17 +532,17 @@ End Sub
 
 
 Sub pset2(x!, y!, coul As Byte)
- 'test si dans le clip !
- If y < cliptop Then Exit Sub
- If y > cliptop + clipheight Then Exit Sub
 
  Select Case display_disposal
- 
 ' Case 0
 ' Me.PSet (x + 20, y + 20), (RGB(color(coul, 0), color(coul, 1), color(coul, 2)))
  
  'test si transparence
  Case 0, 1
+  'Si dans le nouveau clip ?
+  If y < cliptop Then Exit Sub
+  If y > cliptop + clipheight Then Exit Sub
+  'test si draw
   If ((coul <> display_trans_col) Or (display_transpa = 0)) Then
     Me.PSet (x + 20, y + 20), (RGB(color(coul, 0), color(coul, 1), color(coul, 2)))
   End If
@@ -599,14 +599,14 @@ Dim a%, b%
 
 tablesize = initablesize
  
- For a = 0 To UBound(dico2, 1)
-   dico2(a).code = -1
-   dico2(a).long = 0
-   dico2(a).prev = 0
+ For a = 0 To UBound(dico, 1)
+   dico(a).code = -1
+   dico(a).long = 0
+   dico(a).prev = 0
  Next a
  
  For a = 0 To clearcode - 1
-   dico2(a).code = a
+   dico(a).code = a
  Next a
  
  dicoptr = 1 + endcode

@@ -3,6 +3,7 @@ Attribute VB_Name = "Module1"
 'https://commandlinefanatic.com/cgi-bin/showarticle.cgi?article=art011
 'https://stackoverflow.com/questions/67912876/what-exactly-to-do-at-max-code-table-size-followed-by-clear-code-read-in-a-gif-l
 'https://www.eecis.udel.edu/~amer/CISC651/lzw.and.gif.explained.html
+
 Public Declare Sub Sleep Lib "kernel32" (ByVal dwMilliseconds As Long)
 
 Type Entry
@@ -19,7 +20,7 @@ Global gifptr!
 
 'pour Gif Anims
 Global frame_num%
-Global display_times%
+Global display_times!
 Global display_ms%
 Global display_transpa%
 Global display_trans_col%
@@ -55,7 +56,7 @@ Global tablesize!, initablesize!
 Global clearcode!, endcode!, oldcode!
 
 'dico
-Global dico2(4096) As Entry
+Global dico(4096) As Entry
 
 'sortie pix
 Global pix() As Byte
@@ -65,4 +66,4 @@ Global dicoptr As Long
 'pour la pile de pixels (ordre à inverser)
 '(premiers entrés -> derniers setpix)
 Global pixstackptr%
-Global pixstack(255) As Byte
+Global pixstack(512) As Byte
